@@ -10,6 +10,8 @@ import {
   refreshTokenValidation,
   updateProfileValidation,
 } from '../middlewares/validation.middleware';
+import supabaseService from '../services/supabase.service';
+import config from '../config';
 
 const router = Router();
 
@@ -30,5 +32,29 @@ router.get('/oauth/:provider/callback', authController.handleOAuthCallback);
 // Protected routes (require authentication)
 router.get('/profile', authenticate, authController.getCurrentUser);
 router.put('/profile', authenticate, updateProfileValidation, authController.updateProfile);
+
+// Development-only routes for debugging
+if (config.env === 'development') {
+  router.get('/debug/database', async (req, res) => {
+    const dbInfo = await supabaseService.getDatabaseInfo();
+    res.json({
+      success: true,
+      data: dbInfo
+    });
+  });
+  
+  router.get('/debug/config', (req, res) => {
+    // Return limited config info for debugging
+    res.json({
+      success: true,
+      data: {
+        env: config.env,
+        supabaseUrl: config.supabase.url,
+        hasSupabaseKey: !!config.supabase.key,
+        corsOrigins: config.security.cors.origin,
+      }
+    });
+  });
+}
 
 export default router; 
