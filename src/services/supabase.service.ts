@@ -18,9 +18,10 @@ class SupabaseService {
   /**
    * Register a new user with email and password
    */
-  async registerUser(email: string, password: string) {
+  async registerUser(email: string, password: string, metadata: { [key: string]: any }) {
     console.log(`Attempting to register user with email: ${email} using Supabase`);
     console.log(`Supabase URL: ${config.supabase.url}`);
+    console.log(`Registration metadata:`, metadata);
     
     try {
       // Define the redirect URL for email confirmation
@@ -34,8 +35,9 @@ class SupabaseService {
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl
-        }
+          emailRedirectTo: redirectUrl,
+          data: metadata,
+        },
       });
       
       console.log('Supabase registration result:', {
@@ -130,10 +132,12 @@ class SupabaseService {
       .from('user_profiles')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
-    return data;
+    
+    // If no profile exists, return null instead of throwing an error
+    return data || null;
   }
 
   /**

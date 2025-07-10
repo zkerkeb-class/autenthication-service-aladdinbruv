@@ -6,13 +6,19 @@ import config from './config';
 import { configureSecurityMiddleware } from './middlewares/security.middleware';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import authRoutes from './routes/auth.routes';
+import cors from 'cors';
 
 const app: Express = express();
 
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.use(cors({
+  origin: '*', // During development allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
+}));
 // Cookie parser
 app.use(cookieParser());
 
@@ -48,7 +54,7 @@ app.use(errorHandler);
 
 // Start the server
 const PORT = config.port;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
 

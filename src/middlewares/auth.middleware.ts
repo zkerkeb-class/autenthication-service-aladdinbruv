@@ -33,6 +33,19 @@ export const authenticate = async (
       return;
     }
 
+    // DEVELOPMENT ONLY: Allow mock token for testing
+    if (token === 'mock-development-token' && process.env.NODE_ENV === 'development') {
+      req.user = {
+        id: 'test-user-123',
+        email: 'test@example.com',
+        role: UserRole.USER,
+        isEmailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      return next();
+    }
+
     try {
       // Verify token
       const decoded = jwtService.verifyAccessToken(token);

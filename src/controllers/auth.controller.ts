@@ -20,7 +20,11 @@ class AuthController {
 
       // Register user in Supabase
       console.log('Calling Supabase registerUser...');
-      const { data, error } = await supabaseService.registerUser(email, password);
+      const { data, error } = await supabaseService.registerUser(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        display_name: displayName,
+      });
       
       // Log response without sensitive information
       console.log('Supabase registration response details:', {
@@ -57,27 +61,55 @@ class AuthController {
 
       console.log(`User registered with ID: ${data.user.id}`);
 
-      // Create user profile if additional info provided
-      if (firstName || lastName || displayName) {
-        console.log('Creating user profile with additional info');
-        try {
-          const profileData = {
-            user_id: data.user.id,
-            first_name: firstName || '',
-            last_name: lastName || '',
-            display_name: displayName || '',
-            created_at: new Date(),
-            updated_at: new Date(),
-          };
-          console.log('Profile data:', profileData);
-          
-          const profileResult = await supabaseService.upsertUserProfile(profileData);
-          console.log('Profile creation result:', JSON.stringify(profileResult, null, 2));
-        } catch (profileError) {
-          console.error('Error creating user profile:', profileError);
-          // Continue even if profile creation fails
+      // Always create user profile
+      console.log('Creating user profile');
+      try {
+        const profileData = {
+          user_id: data.user.id,
+          first_name: firstName || '',
+          last_name: lastName || '',
+          display_name: displayName || '',
+          bio: '',
+          avatar_url: null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+        console.log('Profile data:', profileData);
+        
+        const profileResult = await supabaseService.upsertUserProfile(profileData);
+        console.log('Profile creation result:', JSON.stringify(profileResult, null, 2));
+        
+        if (profileResult.error) {
+          console.error('Profile creation failed:', profileResult.error);
+          // Don't fail registration if profile creation fails, but log it
         }
+      } catch (profileError) {
+        console.error('Error creating user profile:', profileError);
+        // Continue even if profile creation fails, but this should be investigated
       }
+
+      // --- BEGIN: ADDED NOTIFICATION LOGIC ---
+      try {
+        const notificationServiceUrl = 'http://localhost:3004/api/notifications/email';
+        console.log(`Sending welcome email to ${email} via ${notificationServiceUrl}`);
+
+        // Fire-and-forget the notification
+        fetch(notificationServiceUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: email,
+            subject: 'Welcome to SK8!',
+            html: `<h1>Hey ${displayName || firstName || 'there'},</h1><p>Welcome to the community. Get ready to discover and share the best skate spots.</p>`
+          }),
+        }).catch(err => {
+          // Log the error but don't block the main flow
+          console.error('Failed to send welcome email:', err);
+        });
+      } catch (emailError) {
+        console.error('Error initiating the send-email process:', emailError);
+      }
+      // --- END: ADDED NOTIFICATION LOGIC ---
 
       // Check if we need to send a verification email
       if (!data.user.email_confirmed_at) {
@@ -120,7 +152,7 @@ class AuthController {
           
           // Generate JWT tokens
           const tokenPayload = {
-            userId: userCheck.data.user.id,
+            sub: userCheck.data.user.id,
             email: userCheck.data.user.email!,
             role: userCheck.data.user.app_metadata?.role || 'user',
           };
@@ -164,7 +196,7 @@ class AuthController {
 
       // Generate JWT tokens
       const tokenPayload = {
-        userId: data.user.id,
+        sub: data.user.id,
         email: data.user.email!,
         role: data.user.app_metadata?.role || 'user',
       };
@@ -243,7 +275,7 @@ class AuthController {
 
       // Generate new tokens
       const tokenPayload = {
-        userId: decoded.userId,
+        sub: decoded.userId,
         email: decoded.email,
         role: decoded.role || 'user',
       };
@@ -276,33 +308,45 @@ class AuthController {
   }
 
   /**
-   * Request password reset
+   * Request a password reset for a user
    */
   async requestPasswordReset(req: Request, res: Response): Promise<void> {
     try {
       const { email } = req.body;
-
-      // Send password reset email via Supabase
-      const { error } = await supabaseService.resetPassword(email);
-
-      if (error) {
-        throw new AppError(error.message, StatusCodes.BAD_REQUEST);
+      if (!email) {
+        throw new AppError('Email is required', StatusCodes.BAD_REQUEST);
       }
 
+      console.log(`Password reset request for email: ${email}`);
+
+      // Use Supabase's built-in password reset functionality
+      const { error } = await supabaseService.sendPasswordResetEmail(email);
+
+      if (error) {
+        // Log the error but do not expose details to the client
+        console.error('Error sending password reset email:', error.message);
+      }
+
+      // Always return a success response to prevent email enumeration
       res.status(StatusCodes.OK).json({
         success: true,
-        message: 'Password reset link sent to your email',
+        message: 'If an account with this email exists, a password reset link has been sent.',
       });
     } catch (error) {
+      console.error('Password reset request error:', error);
       if (error instanceof AppError) {
         throw error;
       }
-      throw new AppError((error as Error).message, StatusCodes.INTERNAL_SERVER_ERROR);
+      // Return a generic message even for internal errors in this specific case
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: 'If an account with this email exists, a password reset link has been sent.',
+      });
     }
   }
 
   /**
-   * Reset password with token
+   * Reset a user's password using a verification token
    */
   async resetPassword(req: Request, res: Response): Promise<void> {
     try {
@@ -373,7 +417,7 @@ class AuthController {
             email: req.user.email,
             role: req.user.role,
             isEmailVerified: req.user.isEmailVerified,
-            profile: userProfile,
+            profile: userProfile || null, // Handle case where no profile exists yet
           },
         },
       });
@@ -498,6 +542,93 @@ class AuthController {
       res.status(StatusCodes.OK).json({
         success: true,
         message: 'Verification email resent successfully',
+      });
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError((error as Error).message, StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Create a new subscription for the authenticated user
+   */
+  async createSubscription(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { email, id: userId } = req.user || {};
+
+      if (!email || !userId) {
+        throw new AppError('Authentication failed. User details not found.', StatusCodes.UNAUTHORIZED);
+      }
+
+      console.log(`Creating subscription for user: ${userId} (${email})`);
+
+      // Call the payment service to create the subscription
+      const paymentServiceUrl = 'http://localhost:3005/api/payments/create-subscription';
+      const paymentResponse = await fetch(paymentServiceUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!paymentResponse.ok) {
+        const errorBody = await paymentResponse.text();
+        console.error(`Payment service responded with error: ${paymentResponse.status}`, errorBody);
+        throw new AppError('Could not initiate subscription with the payment service.', StatusCodes.INTERNAL_SERVER_ERROR);
+      }
+
+      const { clientSecret, subscriptionId } = await paymentResponse.json() as { clientSecret: string; subscriptionId: string };
+
+      // Optional but highly recommended: Save the subscriptionId to the user's profile
+      // This helps you track their status later.
+      await supabaseService.upsertUserProfile({
+        user_id: userId,
+        stripe_subscription_id: subscriptionId,
+        subscription_status: 'incomplete', // Will be 'active' after successful payment
+      });
+
+      console.log(`Subscription ${subscriptionId} initiated for user ${userId}. Sending client_secret to app.`);
+
+      res.status(StatusCodes.OK).json({ clientSecret, subscriptionId });
+
+    } catch (error) {
+      console.error('Create subscription error:', error);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError((error as Error).message, StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Get profile data including spots, collections, achievements
+   */
+  async getProfileData(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', StatusCodes.UNAUTHORIZED);
+      }
+
+      const userId = req.params.userId || req.user.id;
+
+      // Get user profile from Supabase
+      const userProfile = await supabaseService.getUserById(userId);
+
+      // Here you would fetch additional data like spots, collections, achievements
+      // For now, returning basic structure
+      const profileData = {
+        profile: userProfile,
+        spots: [], // TODO: Fetch from spot service
+        collections: [], // TODO: Fetch from spot service  
+        achievements: [], // TODO: Fetch from spot service
+        followers: 0, // TODO: Fetch from social service
+        following: 0, // TODO: Fetch from social service
+      };
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: profileData,
       });
     } catch (error) {
       if (error instanceof AppError) {

@@ -12,9 +12,13 @@ class JwtService {
    * Generate an access token
    */
   generateAccessToken(payload: TokenPayload): string {
-    return jwt.sign(payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    });
+    const enrichedPayload = {
+      ...payload,
+      aud: 'authenticated',
+      iss: 'https://ajebhzphrstcoyknfqik.supabase.co/auth/v1',
+      exp: Math.floor(Date.now() / 1000) + (60 * 60),
+    };
+    return jwt.sign(enrichedPayload, config.jwt.secret);
   }
 
   /**
