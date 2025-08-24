@@ -28,8 +28,8 @@ class JwtService {
    */
   generateRefreshToken(payload: TokenPayload): string {
     return jwt.sign(payload, config.jwt.refreshSecret, {
-      expiresIn: config.jwt.refreshExpiresIn as string,
-    });
+      expiresIn: config.jwt.refreshExpiresIn,
+    } as any);
   }
 
   /**
