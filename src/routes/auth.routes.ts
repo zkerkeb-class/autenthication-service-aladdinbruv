@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authController from '../controllers/auth.controller';
+import { asyncHandler } from '../utils/asyncHandler';
 import { authenticate } from '../middlewares/auth.middleware';
 import {
   registerValidation,
@@ -18,25 +19,25 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Public routes
-router.post('/register', registerValidation, authController.register as any);
-router.post('/login', loginValidation, authController.login as any);
-router.post('/logout', authController.logout as any);
-router.post('/refresh', refreshTokenValidation, authController.refreshToken as any);
-router.post('/reset-password-request', resetPasswordRequestValidation, authController.requestPasswordReset as any);
-router.post('/reset-password', resetPasswordValidation, authController.resetPassword as any);
-router.post('/verify-email', verifyEmailValidation, authController.verifyEmail as any);
-router.post('/resend-verification-email', resetPasswordRequestValidation, authController.resendVerificationEmail as any);
+router.post('/register', registerValidation, asyncHandler(authController.register as any));
+router.post('/login', loginValidation, asyncHandler(authController.login as any));
+router.post('/logout', asyncHandler(authController.logout as any));
+router.post('/refresh', refreshTokenValidation, asyncHandler(authController.refreshToken as any));
+router.post('/reset-password-request', resetPasswordRequestValidation, asyncHandler(authController.requestPasswordReset as any));
+router.post('/reset-password', resetPasswordValidation, asyncHandler(authController.resetPassword as any));
+router.post('/verify-email', verifyEmailValidation, asyncHandler(authController.verifyEmail as any));
+router.post('/resend-verification-email', resetPasswordRequestValidation, asyncHandler(authController.resendVerificationEmail as any));
 
 // OAuth routes
-router.get('/oauth/:provider', authController.initiateOAuth as any);
-router.get('/oauth/:provider/callback', authController.handleOAuthCallback as any);
+router.get('/oauth/:provider', asyncHandler(authController.initiateOAuth as any));
+router.get('/oauth/:provider/callback', asyncHandler(authController.handleOAuthCallback as any));
 
 // Protected routes (require authentication)
-router.get('/profile', authenticate as any, authController.getCurrentUser as any);
-router.put('/profile', authenticate as any, updateProfileValidation, authController.updateProfile as any);
-router.post('/profile/avatar', authenticate as any, upload.single('file'), authController.uploadAvatar as any);
-router.post('/create-subscription', authenticate as any, authController.createSubscription as any);
-router.get('/profile-data/:userId?', authenticate as any, authController.getProfileData as any);
+router.get('/profile', authenticate as any, asyncHandler(authController.getCurrentUser as any));
+router.put('/profile', authenticate as any, updateProfileValidation, asyncHandler(authController.updateProfile as any));
+router.post('/profile/avatar', authenticate as any, upload.single('file'), asyncHandler(authController.uploadAvatar as any));
+router.post('/create-subscription', authenticate as any, asyncHandler(authController.createSubscription as any));
+router.get('/profile-data/:userId?', authenticate as any, asyncHandler(authController.getProfileData as any));
 
 // Development-only routes for debugging
 if (config.env === 'development') {

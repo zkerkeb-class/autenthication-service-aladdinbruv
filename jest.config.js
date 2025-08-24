@@ -6,11 +6,13 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  globals: {
-    'ts-jest': {
-      diagnostics: false,
-      isolatedModules: true
-    }
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        diagnostics: false
+      }
+    ]
   },
   moduleNameMapper: {
     '@/(.*)': '<rootDir>/src/$1',
