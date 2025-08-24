@@ -9,10 +9,11 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
     // Format errors
     const formattedErrors: Record<string, string[]> = {};
     errors.array().forEach((error) => {
-      if (!formattedErrors[error.path]) {
-        formattedErrors[error.path] = [];
+      const path = (error as any).path || 'field';
+      if (!formattedErrors[path]) {
+        formattedErrors[path] = [];
       }
-      formattedErrors[error.path].push(error.msg);
+      formattedErrors[path].push(error.msg);
     });
 
     return res.status(StatusCodes.BAD_REQUEST).json({

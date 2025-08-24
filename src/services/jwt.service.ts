@@ -2,8 +2,10 @@ import jwt from 'jsonwebtoken';
 import config from '../config';
 
 interface TokenPayload {
-  userId: string;
+  userId?: string;
+  sub?: string;
   email: string;
+  role?: string;
   [key: string]: any;
 }
 
@@ -27,7 +29,7 @@ class JwtService {
   generateRefreshToken(payload: TokenPayload): string {
     return jwt.sign(payload, config.jwt.refreshSecret, {
       expiresIn: config.jwt.refreshExpiresIn,
-    });
+    } as any);
   }
 
   /**
