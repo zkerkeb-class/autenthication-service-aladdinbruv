@@ -48,10 +48,11 @@ export const errorHandler = (
     errors = {};
     
     (err as unknown as ValidationError[]).forEach((error) => {
-      if (!errors![error.param]) {
-        errors![error.param] = [];
+      const param = (error as any).param || 'field';
+      if (!errors![param]) {
+        errors![param] = [];
       }
-      errors![error.param].push(error.msg);
+      errors![param].push(error.msg);
     });
   }
 

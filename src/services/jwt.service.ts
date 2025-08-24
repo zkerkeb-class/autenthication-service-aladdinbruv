@@ -2,8 +2,10 @@ import jwt from 'jsonwebtoken';
 import config from '../config';
 
 interface TokenPayload {
-  userId: string;
+  userId?: string;
+  sub?: string;
   email: string;
+  role?: string;
   [key: string]: any;
 }
 

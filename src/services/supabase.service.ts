@@ -26,7 +26,7 @@ class SupabaseService {
     try {
       // Define the redirect URL for email confirmation
       const redirectUrl = process.env.NODE_ENV === 'production'
-        ? `${config.frontendUrl}/auth/verify-email`
+        ? 'https://sk8app.com/auth/verify-email'
         : 'http://localhost:3000/auth/verify-email';
       
       console.log(`Email confirmation redirect URL: ${redirectUrl}`);
@@ -109,7 +109,7 @@ class SupabaseService {
       type: 'signup',
       email,
       options: {
-        redirectTo: `${config.apiPrefix}/auth/verify-email-callback`,
+        emailRedirectTo: `${config.apiPrefix}/auth/verify-email-callback`,
       },
     });
   }
@@ -227,10 +227,10 @@ class SupabaseService {
         },
         authUsers: {
           count: 0,
-          sample: []
+          sample: [] as Array<{id: string; email: string | undefined; confirmed: boolean}>
         }
       },
-      errors: []
+      errors: [] as Array<{context: string; message: string}>
     };
     
     try {

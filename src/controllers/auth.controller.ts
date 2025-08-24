@@ -152,6 +152,7 @@ class AuthController {
           
           // Generate JWT tokens
           const tokenPayload = {
+            userId: userCheck.data.user.id,
             sub: userCheck.data.user.id,
             email: userCheck.data.user.email!,
             role: userCheck.data.user.app_metadata?.role || 'user',
@@ -166,7 +167,7 @@ class AuthController {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
           });
 
-          return res.status(StatusCodes.OK).json({
+          res.status(StatusCodes.OK).json({
             success: true,
             message: 'Login successful (dev mode: verification bypassed)',
             data: {
@@ -185,6 +186,7 @@ class AuthController {
               }
             },
           });
+          return;
         }
         
         // If user doesn't exist at all, return the normal error
@@ -200,6 +202,7 @@ class AuthController {
 
       // Generate JWT tokens
       const tokenPayload = {
+        userId: data.user.id,
         sub: data.user.id,
         email: data.user.email!,
         role: data.user.app_metadata?.role || 'user',
@@ -283,7 +286,8 @@ class AuthController {
 
       // Generate new tokens
       const tokenPayload = {
-        sub: decoded.userId,
+        userId: decoded.userId || decoded.sub,
+        sub: decoded.userId || decoded.sub,
         email: decoded.email,
         role: decoded.role || 'user',
       };
@@ -328,7 +332,7 @@ class AuthController {
       console.log(`Password reset request for email: ${email}`);
 
       // Use Supabase's built-in password reset functionality
-      const { error } = await supabaseService.sendPasswordResetEmail(email);
+      const { error } = await supabaseService.resetPassword(email);
 
       if (error) {
         // Log the error but do not expose details to the client
@@ -515,7 +519,7 @@ class AuthController {
 
       const { data, error } = await client.storage
         .from('avatars')
-        .upload(path, buffer, {
+        .upload(path, buffer!, {
           cacheControl: 'no-cache',
           upsert: true,
           contentType: mimetype,
