@@ -1,4 +1,4 @@
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import config from '../config';
 
 interface TokenPayload {
@@ -27,10 +27,9 @@ class JwtService {
    * Generate a refresh token
    */
   generateRefreshToken(payload: TokenPayload): string {
-    const options: SignOptions = {
-      expiresIn: config.jwt.refreshExpiresIn,
-    };
-    return jwt.sign(payload, config.jwt.refreshSecret, options);
+    return jwt.sign(payload, config.jwt.refreshSecret, {
+      expiresIn: config.jwt.refreshExpiresIn as string,
+    });
   }
 
   /**
