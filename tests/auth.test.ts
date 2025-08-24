@@ -121,10 +121,16 @@ describe('Auth Routes', () => {
         error: { message: 'Invalid login credentials' },
       });
 
+      // Mock getUserByEmail to return no user (complete failure case)
+      (supabaseService.getUserByEmail as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'User not found' },
+      });
+
       const response = await request(app)
         .post('/api/v1/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'nonexistent@example.com',
           password: 'WrongPassword',
         });
 
