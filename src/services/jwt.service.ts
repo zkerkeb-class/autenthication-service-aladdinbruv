@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import config from '../config';
 
 interface TokenPayload {
@@ -20,16 +20,17 @@ class JwtService {
       iss: 'https://ajebhzphrstcoyknfqik.supabase.co/auth/v1',
       exp: Math.floor(Date.now() / 1000) + (60 * 60),
     };
-    return jwt.sign(enrichedPayload, config.jwt.secret as string);
+    return jwt.sign(enrichedPayload, config.jwt.secret);
   }
 
   /**
    * Generate a refresh token
    */
   generateRefreshToken(payload: TokenPayload): string {
-    return jwt.sign(payload, config.jwt.refreshSecret as string, {
+    const options: SignOptions = {
       expiresIn: config.jwt.refreshExpiresIn,
-    });
+    };
+    return jwt.sign(payload, config.jwt.refreshSecret, options);
   }
 
   /**
@@ -37,7 +38,7 @@ class JwtService {
    */
   verifyAccessToken(token: string): TokenPayload {
     try {
-      return jwt.verify(token, config.jwt.secret as string) as TokenPayload;
+      return jwt.verify(token, config.jwt.secret) as TokenPayload;
     } catch (error) {
       throw new Error('Invalid access token');
     }
@@ -48,7 +49,7 @@ class JwtService {
    */
   verifyRefreshToken(token: string): TokenPayload {
     try {
-      return jwt.verify(token, config.jwt.refreshSecret as string) as TokenPayload;
+      return jwt.verify(token, config.jwt.refreshSecret) as TokenPayload;
     } catch (error) {
       throw new Error('Invalid refresh token');
     }
