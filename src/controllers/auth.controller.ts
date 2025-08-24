@@ -179,6 +179,10 @@ class AuthController {
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
               },
+              supabaseTokens: {
+                accessToken: null,
+                refreshToken: null,
+              }
             },
           });
         }
@@ -223,6 +227,10 @@ class AuthController {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
           },
+          supabaseTokens: {
+            accessToken: data.session?.access_token || null,
+            refreshToken: data.session?.refresh_token || null,
+          }
         },
       });
     } catch (error) {
@@ -469,6 +477,66 @@ class AuthController {
       if (error instanceof AppError) {
         throw error;
       }
+      throw new AppError((error as Error).message, StatusCodes.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Upload avatar to storage using service role
+   */
+  async uploadAvatar(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError('User not authenticated', StatusCodes.UNAUTHORIZED);
+      }
+      const client = supabaseService.getClient();
+
+      // Accept either multipart (req.file) or JSON base64 ({ data, filename, mimetype })
+      let buffer: Buffer | null = null;
+      let filename = '';
+      let mimetype = '';
+
+      const anyReq: any = req as any;
+      if (anyReq.file && anyReq.file.buffer) {
+        buffer = anyReq.file.buffer;
+        filename = anyReq.file.originalname || `avatar-${Date.now()}`;
+        mimetype = anyReq.file.mimetype || 'application/octet-stream';
+      } else if (anyReq.body && (anyReq.body.data || anyReq.body.fileBase64)) {
+        const b64 = anyReq.body.data || anyReq.body.fileBase64;
+        buffer = Buffer.from(b64, 'base64');
+        filename = anyReq.body.filename || `avatar-${Date.now()}.jpg`;
+        mimetype = anyReq.body.mimetype || 'image/jpeg';
+      } else {
+        throw new AppError('No file uploaded', StatusCodes.BAD_REQUEST);
+      }
+
+      const fileExt = (filename.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${req.user.id}/${Date.now()}.${fileExt}`;
+
+      const { data, error } = await client.storage
+        .from('avatars')
+        .upload(path, buffer, {
+          cacheControl: 'no-cache',
+          upsert: true,
+          contentType: mimetype,
+        });
+
+      if (error) {
+        throw new AppError(error.message, StatusCodes.BAD_REQUEST);
+      }
+
+      const { data: urlData } = client.storage
+        .from('avatars')
+        .getPublicUrl(path);
+
+      // persist avatar_url in profile
+      await client
+        .from('user_profiles')
+        .upsert({ user_id: req.user.id, avatar_url: urlData.publicUrl, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+
+      res.status(StatusCodes.OK).json({ success: true, url: urlData.publicUrl });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError((error as Error).message, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   }

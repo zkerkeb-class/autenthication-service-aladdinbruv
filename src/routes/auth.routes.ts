@@ -12,8 +12,10 @@ import {
 } from '../middlewares/validation.middleware';
 import supabaseService from '../services/supabase.service';
 import config from '../config';
+import multer from 'multer';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Public routes
 router.post('/register', registerValidation, authController.register as any);
@@ -32,6 +34,7 @@ router.get('/oauth/:provider/callback', authController.handleOAuthCallback as an
 // Protected routes (require authentication)
 router.get('/profile', authenticate as any, authController.getCurrentUser as any);
 router.put('/profile', authenticate as any, updateProfileValidation, authController.updateProfile as any);
+router.post('/profile/avatar', authenticate as any, upload.single('file'), authController.uploadAvatar as any);
 router.post('/create-subscription', authenticate as any, authController.createSubscription as any);
 router.get('/profile-data/:userId?', authenticate as any, authController.getProfileData as any);
 
