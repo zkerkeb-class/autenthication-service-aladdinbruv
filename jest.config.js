@@ -34,4 +34,9 @@ module.exports = {
   passWithNoTests: true,
   verbose: true,
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  testEnvironmentOptions: {
+    url: 'http://localhost/'
+  },
+  forceExit: true,
+  detectOpenHandles: true,
 } 

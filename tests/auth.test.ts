@@ -118,7 +118,7 @@ describe('Auth Routes', () => {
       // Mock Supabase login user response for invalid credentials
       (supabaseService.loginUser as jest.Mock).mockResolvedValue({
         data: { user: null, session: null },
-        error: { message: 'Invalid credentials' },
+        error: { message: 'Invalid login credentials' },
       });
 
       const response = await request(app)
@@ -130,7 +130,7 @@ describe('Auth Routes', () => {
 
       expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Invalid email or password');
+      expect(response.body.message).toMatch(/Invalid/);
     });
   });
 

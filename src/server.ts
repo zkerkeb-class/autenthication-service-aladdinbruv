@@ -1,4 +1,5 @@
 import express, { Express } from 'express';
+import { Server } from 'http';
 import morgan from 'morgan';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -52,27 +53,30 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-// Start the server
-const PORT = config.port;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.error(err);
-  server.close(() => {
-    process.exit(1);
+// Start the server (skip in test to avoid open handles)
+let server: Server | null = null;
+if (config.env !== 'test') {
+  const PORT = config.port;
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
   });
-});
 
-// Handle SIGTERM signal
-process.on('SIGTERM', () => {
-  console.log('SIGTERM RECEIVED. Shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated!');
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (err) => {
+    console.error('UNHANDLED REJECTION! 💥 Shutting down...');
+    console.error(err);
+    server?.close(() => {
+      process.exit(1);
+    });
   });
-});
+
+  // Handle SIGTERM signal
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM RECEIVED. Shutting down gracefully');
+    server?.close(() => {
+      console.log('Process terminated!');
+    });
+  });
+}
 
 export default app; 
